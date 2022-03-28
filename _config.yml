@@ -104,13 +104,13 @@ analytics:
 author:
   name             : "chokkong"
   avatar           : "/assets/images/profile/20210504ksj.jpg"
-  bio              : "Robotics Research Lab 학부연구생입니다 :)<br>Manipulator에 관심이 많으며<br>관련 공부내용을 꾸준히 올릴 예정입니다.<br>질문이나 지적사항이 있으면 언제든 댓글에 적어주세요 !"
+  bio              : "**Robotics Research Lab 학부연구생입니다 :)**<br>Manipulator에 관심이 많으며<br>학습내용을 계속 올릴 예정입니다.<br>질문이나 지적사항을<br>댓글에 적어주시면 감사하겠습니다 !"
   location         : "Busan, Republic of Korea"
   email            :
   links:
     - label: "Email"
       icon: "fas fa-fw fa-envelope-square"
-      url: "tjdwls6446@naver.com"
+      url: "mailto:tjdwls6446@naver.com"
     - label: "Website"
       icon: "fas fa-fw fa-link"
       # url: "https://your-website.com"
@@ -132,7 +132,7 @@ footer:
   links:
     - label: "Email"
       icon: "fas fa-fw fa-envelope-square"
-      url: "tjdwls6446@naver.com"
+      url: "mailto:tjdwls6446@naver.com"
     - label: "Facebook"
       icon: "fab fa-fw fa-facebook-square"
       # url:
