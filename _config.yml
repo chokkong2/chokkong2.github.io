@@ -110,7 +110,7 @@ author:
   links:
     - label: "Email"
       icon: "fas fa-fw fa-envelope-square"
-       url: "mailto:tjdwls6446@naver.com"
+       url: "tjdwls6446@naver.com"
     - label: "Website"
       icon: "fas fa-fw fa-link"
       # url: "https://your-website.com"
@@ -132,7 +132,7 @@ footer:
   links:
     - label: "Email"
       icon: "fas fa-fw fa-envelope-square"
-       url: "mailto:tjdwls6446@naver.com"
+       url: "tjdwls6446@naver.com"
     - label: "Facebook"
       icon: "fab fa-fw fa-facebook-square"
       # url:
