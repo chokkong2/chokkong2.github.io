@@ -1,0 +1,201 @@
+타이머/카운터 0과 타이머/카운터2는 둘다 8비트 구조로 매우 유사함
+타이머/카운터0은 다른 타이머/카운터들과 다르게 TOSC1,2 단자를 가지고 있어서 자체적인 발진에 의하여 RTC기능 가능
+
+
+
+타이머/카운터 0 제어 레지스터 : TCCR0
+3~6번 WGM01,3 비트를 통해 동작모드 설정. normal모드는 00 설정하면됨
+5,4번 COM01, COM00 비트를 01 로 설정 : 출력 토글, 10,11로 설정 : 각각 0, 1로 클리어,셋 시킴
+
+타이머/카운터0 에서 2~0 CS02~CSO0 비트를 000~111 로 설정 : 분주비 선택
+(타이머/카운터0과 타이머/카운터2에서 2~0번 비트 기능이 조금 다름)
+
+
+
+특수기능 I/O 레지스터 (SFIOR)
+7번 비트 TSM을 0 : 1, 0번 비트인 PSR0, PSR321 비트가 하드웨어적으로 클리어되고 
+타이머/카운터들이 동시에 카운팅 동작을 시작함
+
+TSM을 1 : 1,0번 비트에 라이트한 값을 유지하여 이에 대응하는 분주값 리셋 신호를 발생함
+이는 해당 타이머/카운터의 동작을 정지시켜 똑같은 값으로 설정할 수 있게 해줌
+
+
+
+타이머 카운터 레지스터 (TCNTn) - 타이머/카운터0 사용이니까 TCNT0
+타이머/카운터0 과 2의 8비트 카운터값을 저장함, 이 레지스터는 언제나 리드 및 라이트동작 가능
+
+
+타이머/카운터 출력비교 레지스터 (OCRn) - 타이머/카운터 0 사용시 OCR0
+TCNT레지스터의 값과 비교하여 OCn 단자에 출력신호를 발생시킴
+
+
+
+타이머/카운터 인터럽트 플랙 레지스터 (TIFR)
+타이머/카운터0~2가 발생하는 인터럽트 플랙을 저장하는 레지스터
+밑에 TIMSK 레지스터에서 설명 자세히 되어있음
+
+
+
+타이머/카운터 인터럽트 마스크 레지스터 (TIMSK)
+7번 비트를 1로 설정하고 SREG의 i 비트를 1로 설정하면 타이머/카운터2의 출력비교 인터럽트가 허용상태 !
+- TIFR 레지스터의 OCF2 비트가 1로 되면 인터럽트가 처리됨
+
+6번 비트를 1로 설정하고 SREG의 i 비트를 1로 설정하면 타이머/카운터2의 오버플로우 인터럽트가 허용상태 !
+- TIFR 레지스터의 TOV2 비트가 1로 되면 인터럽트가 처리됨
+
+1번 비트를 1로 설정하고 SREG의 i 비트를 1로 설정하면 타이머/카운터0의 출력비교 인터럽트가 허용!
+- TIFR 레지스터의 OCF0 비트가 1로 되면 인터럽트가 처리됨
+
+0번 비트를 1로 설정하고 SREG의 i비트를 1로 설정하면 타이머/카운터0의 오버플로우 인터럽트 허용
+- TIFR 레지스터의 TOV1 비트가 1로 되면 인터럽트 처리됨
+
+타이머/카운터0 오버플로우 인터럽트 벡터 : TIMER0 OVF
+타이머/카운터0 비교 인터럽트 벡터 : TIMER0 COMP 
+
+
+
+//////
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#define F_CPU 160000000UL
+
+volatile unsigned int cnt;
+
+ISR (TIMER0_OVF_vect)
+{
+	cnt ++;
+}
+
+void DelayWithTimer0_ms (unsigned int ms)
+{
+	unsigned int i;
+	for (i = 1; i <= ms; i++)
+	{
+		cnt = 0;
+		TCNT0 = 0x06;
+		while (cnt < 0);
+	}
+}
+
+void LeftIn (void)
+{
+	int temp,i,j;
+	unsigned ledOut = 1;
+	PORTA = 0xff;
+	temp = 0;
+	ledOut = 1;
+	for (i = 0; i < 8; i++)
+	{
+		if (i > 0 && i < 8)
+		{
+			temp = temp + (ledOut << 8 - i);
+		}
+		
+		for(j = 0; j < 8 - i; j++)
+		{
+			if (i == 0)
+			{
+				PORTA = ~(ledOut << j);
+				DelayWithTimer0_ms (100);
+			}
+			else if (i > 0 && i < 8)
+			{
+				PORTA = ~((ledOut << j) + temp);
+				DelayWithTimer0_ms (100);
+			}
+			else if (i == 7 && j == 0)
+			{
+				PORTA = 0;
+				break;
+			}
+		}
+	}
+}
+
+void LeftOut (void)
+{
+	unsigned temp = 0;
+	unsigned ledOut = 1;
+	int i, j;
+	
+	for (i = 0; i < 8; i++)
+	{
+		for (j = 0; j <= i; j++)
+		{
+			PORTA = (temp >> 1) + (ledOut << i);
+			temp = PORTA;
+			DelayWithTimer0_ms (100);
+		}
+	}
+}
+
+void RightIn (void)
+{
+	unsigned temp = 0;
+	unsigned ledOut = 0x80;
+	int i, j;
+	
+	PORTA = 0xff;
+	for (i = 0; i < 8; i++)
+	{
+		if (i > 0 && i < 8)
+		{
+			temp = temp + (ledOut >> 8 - i);
+		}
+		for (j = 0; j < 8 - i; j++)
+		{
+			if (i == 0)
+			{
+				PORTA = ~(ledOut >> j);
+				DelayWithTimer0_ms (100);
+			}
+			else if (i > 0 && i < 8)
+			{
+				PORTA = ~((ledOut >> j) + temp);
+				DelayWithTimer0_ms (100);
+			}
+		}
+	}
+}
+
+void RightOut (void)
+{
+	unsigned ledOut = 1;
+	unsigned temp = 0;
+	int i,j;
+	
+	for (i = 0; i < 8; i++)
+	{
+		for ( j = 0; j <= i; j++)
+		{
+			PORTA = (temp << 1) + (ledOut << 7 - i);
+			temp = PORTA;
+			DelayWithTimer0_ms (100);
+		}
+	}
+}
+	
+int main(void)
+{
+	
+	TCCR0 = 0x04;
+	TIMSK = 0x01;
+	sei();
+	DDRA = 0xff;
+	PORTA = 0xff;
+	
+	while (1)
+	{
+		LeftIn();
+		LeftOut();
+		RightIn();
+		RightOut();
+	}
+	
+	return 0;
+}
+//////
+
+https://dojang.io/mod/page/view.php?id=749
+https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=gwangryr&logNo=220587814087
+https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=gwangryr&logNo=220576189113

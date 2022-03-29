@@ -1,0 +1,16 @@
+#include "TimerCounter1.h"
+
+int main(void)
+{
+	Timer1init();     // 타이머/카운터1 레지스터 설정
+	
+	while (1)
+	{
+		LeftIn();
+		LeftOut();
+		RightIn();
+		RightOut();
+	}
+	
+	return 0;
+}

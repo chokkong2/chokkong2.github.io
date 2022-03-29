@@ -1,0 +1,35 @@
+#include "HEADER.h"
+
+int val = 0;          // ADCH:ADCL 레지스터 값
+double vin = 0;       // 아날로그 입력전압
+unsigned char str2[16];
+extern unsigned char instr[16];
+extern int j;
+
+void main ()
+{
+	char lcd_arr[16];     // LCD에 출력할 문자열을 저장
+	Set_ADC();       // ADC 레지스터 설정, LED 출력 포트 설정, 전체 인터럽트 허용
+	set_USART();      // USART 레지스터 설정
+	LCD_initialize();     // LCD 초기화
+	sei();                // 전체 인터럽트 허용
+	
+	while (1)
+	{
+		val = get_value();                         // ADC 값 저장
+		LED_ON(val);                               // ADC 값에 따른 LED 출력
+		sprintf (lcd_arr, "value : %.3fV", vin);   // lcd_arr에 문자열 저장
+	    LCD_string(0x80, lcd_arr);                 // LCD에 문자열 출력
+		j = 0;
+		
+		 if (!strcmp(instr,"START"))     // 입력된 문자열이 START 또는 STOP일때만 필요하므로 START 또는 STOP일때만 str2에 문자열 복사를 수행함 
+			 strcpy(str2,instr);
+		else if(!strcmp(instr,"STOP"))
+		     strcpy(str2,instr);
+		  
+		if(!strcmp(str2,"START"))              // str2에 복사된 문자열이 START면 문자열 송신 
+		  TransmitStr(lcd_arr);                // LCD 문자열을 송신			
+		else if(!strcmp(str2,"STOP"))          // str2에 복사된 문자열이 STOP이면 문자열 송신 중단
+		  continue;
+	}
+}

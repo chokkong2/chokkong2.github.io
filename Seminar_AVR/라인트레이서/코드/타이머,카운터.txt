@@ -1,0 +1,18 @@
+#include "HEADER.h"
+
+void Timer1_set(void)            // 타이머/카운터1 레지스터 설정
+{
+	TCCR1A = 0x82;               // PC PWM 모드, TOP=ICR1, 상향카운터에서는 COMPARE MATCH에서 OC1A=0으로 클리어
+	TCCR1B = 0x12;               // 분주비 8 설정 => PWM 한주기가 0.01초
+	DDRB = 0xFF;                 // PORT 출력 설정 (모터방향, OC1A 핀)
+	ICR1 = 10000;                // TOP 설정
+}
+
+
+void Timer3_set(void)            // 타이머/카운터3 레지스터 설정
+{
+	TCCR3A = 0x82;               // PC PWM 모드, TOP=ICR1, 상향카운터에서는 COMPARE MATCH에서 OC3A=0으로 클리어
+	TCCR3B = 0x12;               // 분주비 8 설정
+	DDRE |= 0x08;                // OC3A 핀 출력 설정
+	ICR3 = 10000;                // TOP 설정
+}

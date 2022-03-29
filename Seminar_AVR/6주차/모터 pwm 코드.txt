@@ -1,0 +1,272 @@
+
+****** main 코드 파일 ******
+
+#include "HEADER.h"   
+
+unsigned int cnt;                   // 엔코더 펄스 카운트
+unsigned char Switch;               // 외부 인터럽트 방향설정 변수
+double v;                           // 속도
+extern unsigned char instr[16];     // 수신한 문자열
+extern int j;                       // 수신 문자열의 문자 카운트
+
+void main ()
+{
+	unsigned char usart_arr[16];        // 송신할 문자열을 저장
+	set_USART();      // USART 레지스터 설정
+	External_set();   // 외부 인터럽트 레지스터 설정
+	Timer1_set();     // 타이머/카운터1 레지스터 설정
+	Timer3_set();     // 타이머/카운터3 레지스터 설정
+	sei();            // 전체 인터럽트 허용
+	
+	while (1)
+	{
+		while(Switch == 2)            // 전진
+		{
+			j = 0;
+			
+			sprintf (usart_arr, "---------------");
+			TransmitStr(usart_arr);
+			sprintf (usart_arr, "speed : %0.3fm/s", v);
+			TransmitStr(usart_arr);
+			sprintf (usart_arr, "forward");
+			TransmitStr(usart_arr);
+			sprintf(usart_arr, "duty ratio : %0.1f",(((float)OCR1A/TOP)*100));           // 듀티비 계산
+			TransmitStr(usart_arr);
+			
+			if (!strcmp(instr,"Up"))                       // 속도 상승
+			{
+				if (OCR1A < 31250 && OCR3A < 31250 )
+				{
+					OCR1A += 3125;
+					OCR3A += 3125;
+				}
+				reset_arr(instr,strlen(instr));
+			}
+			
+			else if (!strcmp(instr,"Down"))                // 속도 하강
+			{
+				if (OCR1A > 0 && OCR3A > 0 )
+				{
+					OCR1A -= 3125;
+					OCR3A -= 3125;
+				}
+				reset_arr(instr,strlen(instr));
+			}
+			
+			else if (!strcmp(instr,"Stop"))               // 정지
+			{
+				OCR1A = 0;
+				OCR3A = 0;
+				reset_arr(instr,strlen(instr));
+				break;
+			}
+		}
+		
+		while (Switch == 3)               // 후진
+		{
+			j = 0;
+            
+		    sprintf (usart_arr, "---------------");
+		    TransmitStr(usart_arr);
+		    sprintf (usart_arr, "Speed : %0.3fm/s", v);
+		    TransmitStr(usart_arr);
+		    sprintf (usart_arr, "Backward");
+		    TransmitStr(usart_arr);
+		    sprintf(usart_arr, "Duty Ratio : %0.1f",((float)OCR1A/TOP)*100);         // 듀티비 계산
+		    TransmitStr(usart_arr);
+
+			if (!strcmp(instr,"Up"))                         // 속도 상승
+			{
+				if (OCR1A < 31250 && OCR3A < 31250 )
+				{
+					OCR1A += 3125;
+					OCR3A += 3125;
+				}
+				reset_arr(instr,strlen(instr));
+			}
+			
+			else if (!strcmp(instr,"Down"))                    // 속도 하강
+			{
+				if (OCR1A > 0 && OCR3A > 0 )
+				{
+					OCR1A -= 3125;
+					OCR3A -= 3125;
+				}
+				reset_arr(instr,strlen(instr));
+			}
+			
+			
+			else if (!strcmp(instr,"Stop"))                 // 정지
+			{
+				OCR1A = 0;
+				OCR3A = 0;
+				reset_arr(instr,strlen(instr));
+				break;
+			}
+		}
+	}
+}
+
+
+
+
+****** 타이머/카운터 소스파일 ******
+
+#include "HEADER.h"
+
+extern unsigned int cnt;                  // 엔코더 펄스 카운트
+extern unsigned char Switch;              // 외부 인터럽트 방향설정 변수
+double v;                     // 속도
+unsigned char Forward = 0b00001001;       // 전진
+unsigned char Backward = 0b00000110;      // 후진
+
+ISR(TIMER1_OVF_vect)
+{
+	v = 2.0*3.14*0.0325*((double)cnt/1920.0) / 0.5;    // (2*pi*r * 바퀴 회전수 / t) 단위 : m/s
+	cnt = 0;                                           // 속도 계산 후 카운트 리셋
+	
+}
+
+ISR(INT0_vect)
+{
+	cnt++;                       
+}
+
+ISR(INT1_vect)
+{
+	cnt++;
+}
+
+ISR(INT4_vect)
+{
+	PORTB &= (0b11111001);             
+	PORTB |= Forward;                   // 전진
+	Switch = 2;
+}
+
+ISR(INT5_vect)
+{
+	PORTB &= (0b11110110);        
+	PORTB |= Backward;                  // 후진
+	Switch = 3;
+}
+
+void External_set (void)           // 외부 인터럽트 레지스터 설정
+{
+	EICRA = 0x0F;  // INT0~1 핀의 상승에지가 인터럽트를 트리거함
+	EICRB = 0x05;  // INT4~5 핀의 하강에지가 인터럽트를 트리거함
+    EIMSK = 0x33;  // 인터럽트 INT0~1, INT4~5을 개별적으로 허용함 
+}  
+
+void Timer1_set(void)            // 타이머/카운터1 레지스터 설정
+{
+	TCCR1A = 0x82;//TCCR1A = 0x82;     // PC PWM 모드, TOP=ICR1, 상향카운터에서는 COMPARE MATCH에서 OC1A=0으로 클리어
+	TCCR1B = 0x13;     // 분주비 64 설정                       // PWM 한주기가 0.25초
+	TIMSK = 0x04;      // 타이머 카운터1 오버플로우 인터럽트 허용
+	DDRB = 0xFF;            // PORT 출력 설정
+	ICR1 = 31250;         // TOP 설정
+}
+
+
+void Timer3_set(void)            // 타이머/카운터3 레지스터 설정
+{
+	TCCR3A = 0x82;//TCCR3A = 0x82;      // PC PWM 모드, TOP=ICR1, 상향카운터에서는 COMPARE MATCH에서 OC3A=0으로 클리어
+	TCCR3B = 0x13;      // 분주비 64 설정
+	DDRE |= 0x08;        // OC3A 핀 출력 설정
+	ICR3 = 31250;              // TOP 설정
+}
+
+
+
+****** USART 소스파일 ******
+
+#include "HEADER.h"
+
+unsigned char instr[16];   // 수신할 문자열 저장  
+int j,i;
+int len;
+
+void reset_arr(unsigned char *instr, int len)
+{
+	for (i=0; i<len; i++)
+	{
+		instr[i] = '\0';
+	}
+}
+
+ISR (USART0_RX_vect)
+{
+	    len = strlen(instr);          
+	           
+	    if (j == 0)                          // 문자열을 수신하기전에 문자열을 저장할 배열을 초기화해줌
+		{
+	      for (i=0; i<len; i++)
+	      {
+		      instr[i] = '\0';
+	      }
+		} 
+		instr[j++] = UDR0;
+}
+
+void set_USART (void)
+{
+	UCSR0B = (1 << RXCIE0) | (1 << RXEN0) | (1 << TXEN0);    // RxDn, TxDn 핀을 직렬 데이터 송,수신 단자로 동작하도록 설정
+	UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);  // 비동기 모드, 패티티 비트 사용X, STOP 비트 1개, 전송 데이터 길이 8비트 설정
+	UBRR0H = 0;
+	UBRR0L = 51;     // BAUD rate : 19200bps 설정
+}
+
+void TransmitStr (unsigned char *str_data)
+{
+	strcat (str_data,"\n");
+	int len = strlen(str_data);             // LCD 문자열 길이
+	int i;
+	
+		for (i = 0; i < len+1; i++)         // 문자열 길이 만큼 반복
+		{
+			if (str_data[i] == '\0')        // 문자열의 끝까지 오면 종료
+                break;
+			  
+			while (!(UCSR0A & 0x20));     // UDRE0 = 1이면 송신 데이터를 받을 준비가 되고 while문을 빠져나감
+			UDR0 = str_data[i];           // 문자 송신
+		}
+}
+
+****** 헤더파일 ******
+
+#ifndef HEADER_H_
+#define HEADER_H_
+
+#include "LCD.h"
+#include "ADC.h"
+#include "TimerCounter1.h"
+#include "USART.h"
+#define TOP 31250 
+
+#endif /* HEADER_H_ */
+
+
+
+https://www.youtube.com/watch?v=EqpirQEej-w
+https://techweb.rohm.co.kr/knowledge/dcdc/dcdc_sr/dcdc_sr01/696
+http://www.funnykit.co.kr/bemarket/datasheet/AM-128PRO_manual.pdf
+https://myoungjinkim.github.io/arduino/arduino-encoder-motor/
+https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=chonju&logNo=70015644702
+https://www.dfrobot.com/product-1457.html
+https://www.dfrobot.com/product-352.html
+https://www.makeall.com/com/manualview.php?tsort=&msort=&s_key=&s_type=&s_type2=&no=3453&page=3
+https://eleparts.co.kr/goods/view?no=8323
+https://pdf1.alldatasheet.com/datasheet-pdf/view/190206/WTE/1N4001.html
+https://electgang.tistory.com/entry/%EB%9D%BC%EC%9D%B8%ED%8A%B8%EB%A0%88%EC%9D%B4%EC%84%9C-%EC%84%BC%EC%84%9C%EB%B6%80-ST7L-EL7L
+https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=godv0723&logNo=220101893707
+https://studymake.tistory.com/383
+https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=windi97&logNo=220884098633
+https://www.youtube.com/watch?v=4NCZQIwsfVM
+https://pkr7098.tistory.com/172
+https://www.digikey.kr/ko/articles/how-to-use-rotary-encoders-convert-mechanical-rotation-digital-signals
+https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=lagrange0115&logNo=220626786662
+https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=alsrb968&logNo=220758027872
+
+
+
+

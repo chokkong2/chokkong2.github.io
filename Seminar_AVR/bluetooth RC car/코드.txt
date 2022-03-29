@@ -1,0 +1,244 @@
+
+https://m.blog.naver.com/chokwan77/222004720407
+
+
+
+
+
+main 코드
+
+#include "HEADER.h"
+
+unsigned int cnt1,cnt2;             // 엔코더 펄스 카운트
+unsigned char Switch;               // 외부 인터럽트 방향설정 변수
+extern double v1,v2;                // 속도
+extern unsigned char instr[21];     // 수신한 문자열
+extern int j;                       // 수신 문자열의 문자 카운트
+unsigned char Forward = 0b00000110;      // 전진
+unsigned char Backward = 0b00001001;       // 후진
+void main ()
+{
+	unsigned char usart_arr[21];        // 송신할 문자열을 저장
+	
+	set_USART();      // USART 레지스터 설정
+	Set_ADC();
+	External_set();   // 외부 인터럽트 레지스터 설정
+	Timer1_set();     // 타이머/카운터1 레지스터 설정
+	Timer3_set();     // 타이머/카운터3 레지스터 설정
+	sei();            // 전체 인터럽트 허용
+	
+	sprintf (usart_arr, "START");
+	TransmitStr(usart_arr);
+	while (1)
+	{
+		j = 0;
+		if (!strcmp(instr,"Forward"))         // 전진
+		{
+			sprintf (usart_arr, "Direction : Forward");
+			TransmitStr(usart_arr);
+			PORTB &= (0b11110110);
+			PORTB |= Forward;
+			OCR1A = 30500;
+			OCR3A = 18500;
+			reset_arr(instr,strlen(instr));
+		}
+		
+		else if (!strcmp(instr,"Backward"))        // 후진
+		{
+			sprintf (usart_arr, "Direction : Backward");
+			TransmitStr(usart_arr);
+			PORTB &= (0b11110110);
+			PORTB = Backward;
+			OCR1A = 29000;
+			OCR3A = 22500;
+			reset_arr(instr,strlen(instr));
+		}
+		
+		else if (!strcmp(instr,"Left"))        // 왼쪽
+		{
+			sprintf (usart_arr, "Direction : Left");
+			TransmitStr(usart_arr);
+			PORTB &= (0b11110110);
+			PORTB |= Forward;
+			OCR1A = 10000;
+			OCR3A = 23000;
+			reset_arr(instr,strlen(instr));
+		}
+		
+		else if (!strcmp(instr,"Right"))        // 오른쪽
+		{
+			sprintf (usart_arr, "Direction : Right");
+			TransmitStr(usart_arr);
+			PORTB &= (0b11110110);
+			PORTB |= Forward;
+			OCR1A = 27000;
+			OCR3A = 8000;
+			reset_arr(instr,strlen(instr));
+		}
+		
+		else if (!strcmp(instr,"Stop"))            // 정지
+		{
+			sprintf (usart_arr, "Direction : stop");
+			TransmitStr(usart_arr);
+			OCR1A = 0;
+			OCR3A = 0;
+			reset_arr(instr,strlen(instr));
+		}
+		_delay_ms(50);
+	}
+}
+
+
+
+
+
+
+타이머/카운터 소스코드
+
+
+
+
+
+#include "HEADER.h"
+
+extern unsigned int cnt1;                  // 엔코더 펄스 카운트
+extern unsigned int cnt2;
+extern unsigned char Switch;              // 외부 인터럽트 방향설정 변수
+double v1, v2;                     // 속도
+//unsigned char Forward = 0b00001001;       // 전진
+//unsigned char Backward = 0b00000110;      // 후진
+
+ISR(TIMER1_OVF_vect)
+{
+	v1 = 2.0*3.14*0.0325*((double)cnt1/1920.0) / 0.5;    // (2*pi*r * 바퀴 회전수 / t) 단위 : m/s
+	cnt1 = 0;                                           // 속도 계산 후 카운트 리셋
+}
+
+ISR(TIMER3_OVF_vect)
+{
+	v2 = 2.0*3.14*0.0325*((double)cnt2/1920.0) / 0.5;    // (2*pi*r * 바퀴 회전수 / t) 단위 : m/s
+	cnt2 = 0;
+}
+
+ISR(INT0_vect)
+{
+	cnt1++;
+}
+
+ISR(INT1_vect)
+{
+	cnt1++;
+}
+
+ISR(INT2_vect)
+{
+	cnt2++;
+}
+
+ISR(INT3_vect)
+{
+	cnt2++;
+}
+
+//ISR(INT4_vect)
+//{
+//PORTB &= (0b11111001);
+//PORTB |= Forward;                   // 전진
+//Switch = 2;
+//}
+//
+//ISR(INT5_vect)
+//{
+//PORTB &= (0b11110110);
+//PORTB |= Backward;                  // 후진
+//Switch = 3;
+//}
+
+void External_set (void)           // 외부 인터럽트 레지스터 설정
+{
+	EICRA = 0xFF;  // INT0~3 핀의 상승에지가 인터럽트를 트리거함
+	//EICRB = 0x05;  // INT4~5 핀의 하강에지가 인터럽트를 트리거함
+	EIMSK = 0x0F;  // 인터럽트 INT0~3을 개별적으로 허용함
+}
+
+void Timer1_set(void)            // 타이머/카운터1 레지스터 설정
+{
+	TCCR1A = 0x82;//TCCR1A = 0x82;     // PC PWM 모드, TOP=ICR1, 상향카운터에서는 COMPARE MATCH에서 OC1A=0으로 클리어
+	TCCR1B = 0x13;     // 분주비 64 설정                       // PWM 한주기가 0.25초
+	TIMSK = 0x04;      // 타이머 카운터1 오버플로우 인터럽트 허용
+	DDRB = 0xFF;            // PORT 출력 설정
+	ICR1 = 31250;         // TOP 설정
+	//OCR1A = 20000;
+}
+
+
+void Timer3_set(void)            // 타이머/카운터3 레지스터 설정
+{
+	TCCR3A = 0x82;//TCCR3A = 0x82;      // PC PWM 모드, TOP=ICR1, 상향카운터에서는 COMPARE MATCH에서 OC3A=0으로 클리어
+	TCCR3B = 0x13;      // 분주비 64 설정
+	ETIMSK = 0x04;      // 타이머 카운터3 오버플로우 인터럽트 허용
+	DDRE |= 0x08;        // OC3A 핀 출력 설정
+	ICR3 = 31250;              // TOP 설정
+	//OCR3A = 20000;
+}
+
+
+
+
+
+USART 소스코드
+
+
+
+
+#include "HEADER.h"
+
+unsigned char instr[21];   // 수신할 문자열 저장  
+int j,i;
+int len;
+
+void reset_arr(unsigned char *instr, int len)
+{
+	for (i=0; i<len; i++)
+	{
+		instr[i] = '\0';
+	}
+}
+
+ISR (USART0_RX_vect)
+{
+	    len = strlen(instr);          
+	           
+	    if (j == 0)                          // 문자열을 수신하기전에 문자열을 저장할 배열을 초기화해줌
+		{
+	      for (i=0; i<len; i++)
+	      {
+		      instr[i] = '\0';
+	      }
+		} 
+		instr[j++] = UDR0;
+}
+
+void set_USART (void)
+{
+	UCSR0B = (1 << RXCIE0) | (1 << RXEN0) | (1 << TXEN0);    // RxDn, TxDn 핀을 직렬 데이터 송,수신 단자로 동작하도록 설정
+	UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);  // 비동기 모드, 패티티 비트 사용X, STOP 비트 1개, 전송 데이터 길이 8비트 설정
+	UBRR0H = 0;
+	UBRR0L = 51;     // BAUD rate : 19200bps 설정
+}
+
+void TransmitStr (unsigned char *str_data)
+{
+	strcat (str_data,"\n");
+	int len = strlen(str_data);             // 송신할 문자열 길이
+	int i;
+	
+		for (i = 0; i < len+1; i++)         // 문자열 길이 만큼 반복
+		{
+			if (str_data[i] == '\0')        // 문자열의 끝까지 오면 종료
+                break;
+			
+			while (!(UCSR0A & 0x20));     // UDRE0 = 1이면 송신 데이터를 받을 준비가 되고 while문을 빠져나감
+			UDR0 = str_data[i];           // 문자 송신
+		}
+}

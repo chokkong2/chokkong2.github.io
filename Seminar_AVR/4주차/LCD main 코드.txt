@@ -1,0 +1,12 @@
+#include "LCD.h"
+
+int main()
+{
+	DDRE = 0xff; // Control_bit
+	DDRC = 0xff; // Data_bit
+
+	LCD_initialize(); // 초기화 한번 때려주고
+	LCD_string(0x80, "what the hell..o world"); // Start address is 0x80(0,0)
+
+	return 0;
+}

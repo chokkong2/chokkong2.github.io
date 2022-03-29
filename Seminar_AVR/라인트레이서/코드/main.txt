@@ -1,0 +1,109 @@
+#include "HEADER.h"
+
+extern int adcval0, adcval1, adcval2, adcval3;     // 0~3번 센서값 저장
+int right_cnt, left_cnt;                           // right_cnt : 좌회전하다가 탈선해서 정지했을 때, 우회전을 위한 변수
+							                       // left_cnt : 우회전하다가 탈선해서 정지했을 때, 좌회전을 위한 변수
+												   
+int pre_adcval0, pre_adcval3;                      // 탈선으로 인해 정지할 경우, 정지하기 전의 센서값 
+unsigned char Forward = 0b00000110;      // 직진
+unsigned char Backward = 0b00001001;       // 후진
+unsigned char turnright = 0b00001010;     // 우회전
+
+void main ()
+{
+	set_USART();      // USART 레지스터 설정
+	Set_ADC();
+	Timer1_set();     // 타이머/카운터1 레지스터 설정
+	Timer3_set();     // 타이머/카운터3 레지스터 설정
+	sei();            // 전체 인터럽트 허용
+	
+	while (1)
+	{
+		PORTB &= (0b11110110);            
+		PORTB |= Forward;          // 직진방향 설정
+		get_value();               // 센서값 읽기
+		
+		if (adcval0<100 && adcval1>285 && adcval2>335 && adcval3<260)      // 직진
+		{
+			right_cnt = 0;
+			left_cnt = 0;
+			OCR1A=10000;  
+			OCR3A=7000;  
+		}
+		else if (adcval0>100 && adcval1>285 && adcval2>335 && adcval3>260)      // 직진
+		{
+			right_cnt = 0;
+			left_cnt = 0;
+			OCR1A=10000;  
+			OCR3A=7000;  
+		}
+		else if (adcval0>100 && adcval1>285 && adcval2>335 && adcval3<260)      // 직진
+		{
+			right_cnt = 0;
+			left_cnt = 0;
+			OCR1A=10000;  
+			OCR3A=7000;  
+		}
+		else if (adcval0<100 && adcval1<285 && adcval2<335 && adcval3<260)    // 정지
+		{
+			if (pre_adcval3 >260 || right_cnt != 0)     //  좌회전하다가 탈선했을 경우 우회전
+			{
+				right_cnt = 1;                          // 우회전 카운트 (카운트가 0이 아닐 경우 우회전해야함을 뜻함)
+				OCR1A=10000;
+				OCR3A=500;
+			}
+			else if (pre_adcval0 >100 || left_cnt != 0)    // 우회전하다가 탈선했을 경우 좌회전
+			{
+				left_cnt = 1;                           // 좌회전 카운트 (카운트가 0이 아닐 경우 좌회전해야함을 뜻함
+				OCR1A = 4000;
+				OCR3A = 7000;
+			}
+			else
+			{
+				OCR1A=0;
+				OCR3A=0;
+			}
+		}
+		else if (adcval0 >90 && adcval1>285 && adcval2<335 && adcval3<260)     // 좌회전
+		{
+			pre_adcval3 = adcval3;              // 현재의 양 끝 센서값을 이전 상태의 센서값에 저장
+			pre_adcval0 = adcval0;
+			right_cnt = 0;
+			left_cnt = 0;
+			if (adcval0<115)
+			{
+				OCR1A=8000;
+				OCR3A=7000;
+			}
+			else
+			{
+				OCR1A = 4000;
+				OCR3A = 7000;
+			}
+		}
+		else if (adcval0<100 && adcval1<285 && adcval2>335 && adcval3>280)          // 우회전
+		{
+			right_cnt = 0;
+			left_cnt = 0;
+			pre_adcval3 = adcval3;
+			pre_adcval0 = adcval0;
+			if (adcval3>600)                  // 3번 센서가 완전히 흰선위에 있을 경우
+			{
+				PORTB &= (0b11111010);
+				PORTB |= turnright;           // 왼쪽바퀴는 정방향, 오른쪽바퀴는 역방향 설정
+				OCR1A = 10000;
+				OCR3A = 1000;
+			}
+			else if (adcval3<400)
+			{
+				OCR1A = 10000;
+				OCR3A = 6000;
+			}
+			else if (adcval3>400 && adcval3<600)
+			{
+				OCR1A=10000;
+				OCR3A=2000;
+			}
+		}
+	}
+}

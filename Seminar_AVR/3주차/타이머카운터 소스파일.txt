@@ -1,0 +1,128 @@
+#include "TimerCounter1.h"
+
+volatile unsigned int cnt;
+
+ISR (TIMER1_COMPB_vect)  //1ms마다 인터럽트 발생
+{
+	cnt ++;
+}
+
+void DelayWithTimer0_ms (unsigned int ms)
+{
+	int i;
+	for (i = 1; i <= ms; i++)
+	{
+		cnt = 0;
+		TCNT1 = 0;
+		while (cnt <= 0);
+	}
+}
+
+void LeftIn (void)
+{
+	int temp,i,j;
+	unsigned ledOut = 1;
+	PORTA = 0xff;
+	temp = 0;
+	ledOut = 1;
+	for (i = 0; i < 8; i++)
+	{
+		if (i > 0 && i < 8)
+		{
+			temp = temp + (ledOut << 8 - i);
+		}
+		
+		for(j = 0; j < 8 - i; j++)
+		{
+			if (i == 0)
+			{
+				PORTA = ~(ledOut << j);
+				DelayWithTimer0_ms(100);
+			}
+			else if (i > 0 && i < 8)
+			{
+				PORTA = ~((ledOut << j) + temp);
+				DelayWithTimer0_ms(100);
+			}
+		}
+	}
+}
+
+void LeftOut (void)
+{
+	int temp = 0;
+	unsigned char ledOut = 1;
+	int i, j;
+	
+	for (i = 0; i < 8; i++)
+	{
+		for (j = 0; j <= i; j++)
+		{
+			PORTA = (temp >> 1) + (ledOut << i);
+			temp = PORTA;
+			DelayWithTimer0_ms (100);
+		}
+	}
+}
+
+void RightIn (void)
+{
+	int temp = 0;
+	unsigned char ledOut = 0x80;
+	int i, j;
+	
+	PORTA = 0xff;
+	for (i = 0; i < 8; i++)
+	{
+		if (i > 0 && i < 8)
+		{
+			temp = temp + (ledOut >> 8 - i);
+		}
+		for (j = 0; j < 8 - i; j++)
+		{
+			if (i == 0)
+			{
+				PORTA = ~(ledOut >> j);
+				DelayWithTimer0_ms (100);
+			}
+			else if (i > 0 && i < 8)
+			{
+				PORTA = ~((ledOut >> j) + temp);
+				DelayWithTimer0_ms (100);
+			}
+		}
+	}
+}
+
+void RightOut (void)
+{
+	unsigned char ledOut = 1;
+	int temp = 0;
+	int i,j;
+	
+	for (i = 0; i < 8; i++)
+	{
+		for ( j = 0; j <= i; j++)
+		{
+			PORTA = (temp << 1) + (ledOut << 7 - i);
+			temp = PORTA;
+			DelayWithTimer0_ms (100);
+		}
+	}
+}
+
+void Timer1init(void)
+{
+	// TCCR1A = (1<<COM1B0);       // compare match에서 OC1B 출력을 토글
+	
+	TCCR1B = (1<<WGM12) | (1<<CS11);     // 0x0A CTC 모드, 분주비 : 8
+	TIMSK = (1<<OCIE1B);             // 타이머/카운터1의 출력비교 인터럽트 B 허용
+	OCR1B = 1999;                  // OCR1 = 1999 설정
+	sei();                        // 인터럽트 허용
+	
+	DDRA = 0xff;            // PORT 출력 설정
+	PORTA = 0xff;
+	
+	// DDRB = 0xff;        // OC1B 핀의 출력확인을 위해 설정
+	// PORTB = 0xff;
+}

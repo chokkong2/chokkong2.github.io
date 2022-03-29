@@ -1,0 +1,83 @@
+
+******* main 코드 파일 *******
+
+#include "HEADER.h"
+
+extern int val;          // ADCH:ADCL 레지스터 값
+extern double vin;       // 아날로그 입력전압
+
+void main ()
+{
+	char lcd_arr[16];     // LCD에 출력할 문자열을 저장
+	Set_ADC();       // ADC 레지스터 설정, LED 출력 포트 설정, 전체 인터럽트 허용
+	LCD_initialize();     // LCD 초기화
+	sei();                // 전체 인터럽트 허용
+	
+	while (1)
+	{
+	    val = get_value();              // ADC 값 저장
+	    LED_ON(val);                               // ADC 값에 따른 LED 출력
+		sprintf (lcd_arr, "value : %.3fV", vin);      // lcd_arr에 문자열 저장
+		LCD_string(0x80, lcd_arr);                  // LCD에 문자열 출력
+	}
+}
+     // 17번 줄 : LCD에 실수형 출력하려면 설정이 필요함 https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=dododokim&logNo=221422623849
+
+
+
+******* ADC 소스파일 *******
+
+#include "HEADER.h"
+
+extern int val;          // ADCH:ADCL 레지스터 값
+extern double vin;       // 아날로그 입력전압
+
+ISR (ADC_vect)  // ADC 변환 완료 인터럽트
+{
+	vin = (double)(val * 4.46)/1024;     // 아날로그 입력전압 계산
+} 
+
+int get_value1(void)          
+{	
+	while ((ADCSRA&(1<<ADIF) == 0));      // ADIF 비트를 통해 변환이 완료되었는지 확인
+	return ADC;                           // ADC 값 반환
+}
+
+void Set_ADC (void)
+{
+	ADCSRA = 0xe7;      // (1<<ADEN) | (1<<ADSC) | (1<<ADFR) | (1<<(ADIE) | (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0)
+	// ADC enable, ADC start, free running mode, 변환완료 인터럽트 허용, prescaler 128 (=125kHz)
+	
+	ADMUX = 0X00;       // AREF 전압 사용, ADCH,L 레지스터 우측으로, 단극성 입력채널 ADC0 선택
+	DDRF = 0x00;        // ADC PORT 설정
+	DDRA = 0xFF;        // LED PORT 설정
+	PORTA = 0xff;
+}
+
+void LED_ON (int val)             // ADC 값에 따른 LED 출력
+{
+	vin = (double)(val * 4.46)/1024;     // 아날로그 입력전압 계산
+	unsigned char ledOut = 1;
+	int j=0;
+	int i = (int)(val/128);       // LED가 8개이므로 1023/8 = 127.8로 ADC 값을 나누어 줌
+	
+	for (; i>=0; i--)             // ADC 값에 따라 정수 형태로 얻어진 i 값을 통해 LED 출력
+	{
+		j |= (ledOut<<i);   
+	}
+	PORTA = ~j;
+}
+
+
+
+******* ADC 헤더파일 *******
+
+#ifndef ADC_H_
+#define ADC_H_
+
+
+int get_value(void);
+void Set_ADC(void);
+void LED_ON (int val);
+
+#endif /* ADC1_H_ */

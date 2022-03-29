@@ -1,0 +1,57 @@
+#include "HEADER.h"
+
+int adcval0,adcval1,adcval2,adcval3;      // 0~3번 센서값 저장
+
+void get_value0(void)
+{ 
+	ADCSRA |= (1<<ADSC);                  // 변환시작
+	ADMUX = 0x40;                         // AVCC 전압 사용, ADCH,L 레지스터 우측으로, 단극성 입력채널 ADC0 선택
+	_delay_ms(0.33);  
+	while ((ADCSRA&(1<<ADIF) == 0));      // ADIF 비트를 통해 변환이 완료되었는지 확인
+	adcval0 = ADC;                        // ADC 값 반환
+	ADCSRA |= (1 << ADIF);                // 플랙 비트 강제클리어
+}
+
+void get_value1(void)
+{
+	ADCSRA |= (1<<ADSC);                  // 변환시작
+	ADMUX = 0X41;                         // AVCC 전압 사용, ADCH,L 레지스터 우측으로, 단극성 입력채널 ADC1 선택
+	_delay_ms(0.33);
+	while ((ADCSRA&(1<<ADIF) == 0));      // ADIF 비트를 통해 변환이 완료되었는지 확인
+	adcval1 = ADC;                        // ADC 값 반환
+	ADCSRA |= (1 << ADIF);                // 플랙 비트 강제클리어
+}
+
+void get_value2(void)
+{
+	ADCSRA |= (1<<ADSC);                  // 변환시작
+	ADMUX = 0X42;                         // AVCC 전압 사용, ADCH,L 레지스터 우측으로, 단극성 입력채널 ADC2 선택
+	_delay_ms(0.33);                      
+	while ((ADCSRA&(1<<ADIF) == 0));      // ADIF 비트를 통해 변환이 완료되었는지 확인
+	adcval2 = ADC;                        // ADC 값 반환
+	ADCSRA |= (1 << ADIF);                // 플랙 비트 강제클리어
+}
+
+void get_value3(void)
+{
+	ADCSRA |= (1<<ADSC);                  // 변환시작
+	ADMUX = 0X43;                         // AVCC 전압 사용, ADCH,L 레지스터 우측으로, 단극성 입력채널 ADC3 선택
+	_delay_ms(0.33);
+	while ((ADCSRA&(1<<ADIF) == 0));      // ADIF 비트를 통해 변환이 완료되었는지 확인
+	adcval3 = ADC;                        // ADC 값 반환
+	ADCSRA |= (1 << ADIF);                // 플랙 비트 강제클리어
+	//error3 = (adcval3-pre_adcval3) > 0 ? (adcval3-pre_adcval3) : (pre_adcval3-adcval3);
+}
+
+void get_value(void)                      // 0~3번 센서값
+{
+	get_value0();
+	get_value1();
+	get_value2();
+	get_value3();
+}
+
+void Set_ADC (void)              // ADC 레지스터 설정
+{
+	ADCSRA = (1<<ADEN) | (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0);    // ADC enable, prescaler 128 (=125kHz)
+}
